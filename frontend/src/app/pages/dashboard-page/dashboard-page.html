@@ -1,44 +1,45 @@
 <section class="dashboard-shell">
   <header class="topbar">
     <div>
-      <p class="eyebrow">Painel financeiro</p>
-      <h1>{{ getMonthName(dashboard.monthNumber || currentMonth).toUpperCase() }} · {{ dashboard.year || currentYear }}</h1>
+      <p class="eyebrow">FLUXO <span class="brand-divider">/</span> FINANCEIRO</p>
+      <h1>Seu dinheiro, com clareza.</h1>
+      <p class="page-subtitle">Acompanhe suas movimentações e organize o próximo passo.</p>
     </div>
-    <button class="ghost" (click)="logout()">Sair</button>
+    <div class="header-actions"><span class="period-chip">{{ getMonthName(dashboard.monthNumber || currentMonth) }} / {{ dashboard.year || currentYear }}</span><button class="ghost" (click)="logout()">Sair</button></div>
   </header>
 
-  <div class="status" *ngIf="statusMessage">{{ statusMessage }}</div>
+  <div class="status" role="status" *ngIf="statusMessage">{{ statusMessage }}</div>
 
-  <div class="tabs">
-    <button type="button" [class.active]="activeTab === 'transactions'" (click)="activeTab = 'transactions'">Lançamentos</button>
-    <button type="button" [class.active]="activeTab === 'overview'" (click)="activeTab = 'overview'">Visão geral</button>
-    <button type="button" [class.active]="activeTab === 'comparison'" (click)="activeTab = 'comparison'">Comparar meses</button>
-    <button type="button" [class.active]="activeTab === 'insights'" (click)="activeTab = 'insights'">Insights</button>
-  </div>
+  <nav class="tabs" aria-label="Seções do painel">
+    <button type="button" [class.active]="activeTab === 'overview'" [attr.aria-current]="activeTab === 'overview' ? 'page' : null" (click)="activeTab = 'overview'">Visão geral</button>
+    <button type="button" [class.active]="activeTab === 'transactions'" [attr.aria-current]="activeTab === 'transactions' ? 'page' : null" (click)="activeTab = 'transactions'">Lançamentos</button>
+    <button type="button" [class.active]="activeTab === 'comparison'" [attr.aria-current]="activeTab === 'comparison' ? 'page' : null" (click)="activeTab = 'comparison'">Comparar meses</button>
+    <button type="button" [class.active]="activeTab === 'insights'" [attr.aria-current]="activeTab === 'insights' ? 'page' : null" (click)="activeTab = 'insights'">Insights</button>
+  </nav>
 
   <div class="stats-grid" *ngIf="activeTab === 'overview'">
-    <article class="card stat-card">
+    <article class="card stat-card balance-card">
       <p>Saldo do mês</p>
-      <strong>R$ {{ getDisplayValue(dashboard.balance) }}</strong>
+      <strong>{{ formatCurrency(dashboard.balance || 0) }}</strong>
     </article>
     <article class="card stat-card">
       <p>Total gasto</p>
-      <strong>R$ {{ getDisplayValue(dashboard.totalExpense) }}</strong>
+      <strong>{{ formatCurrency(dashboard.totalExpense || 0) }}</strong>
     </article>
     <article class="card stat-card">
       <p>Total recebido</p>
-      <strong>R$ {{ getDisplayValue(dashboard.totalIncome) }}</strong>
+      <strong>{{ formatCurrency(dashboard.totalIncome || 0) }}</strong>
     </article>
     <article class="card stat-card">
       <p>Economia</p>
-      <strong>R$ {{ getDisplayValue(dashboard.totalSaved) }}</strong>
+      <strong>{{ formatCurrency(dashboard.totalSaved || 0) }}</strong>
     </article>
   </div>
 
   <div class="content-grid" *ngIf="activeTab === 'overview'">
     <div class="card">
-      <h2>Novo lançamento</h2>
-      <form [formGroup]="expenseForm" (ngSubmit)="submitExpense()">
+      <p class="eyebrow">Organize seu dia a dia</p><h2>Novo lançamento</h2><p class="section-description">Registre uma entrada ou saída da sua conta.</p>
+      <form class="entry-form" [formGroup]="expenseForm" (ngSubmit)="submitExpense()">
         <fieldset class="type-selector" [disabled]="saving">
           <legend>Tipo de lançamento</legend>
           <button type="button" [class.ghost]="expenseForm.value.type !== 'expense'" [attr.aria-pressed]="expenseForm.value.type === 'expense'" (click)="setType('expense')">Saída</button>
@@ -101,10 +102,10 @@
     </div>
 
     <div class="card">
-      <h2>Nota fiscal</h2>
+      <p class="eyebrow">Menos digitação</p><h2>Importar comprovante</h2><p class="section-description">Selecione uma imagem para preencher os dados do lançamento. Revise antes de salvar.</p>
       <div class="status" *ngIf="ocrStatusMessage">{{ ocrStatusMessage }}</div>
       <label class="upload-card" for="receipt-upload">
-        <span class="upload-icon">📄</span>
+        <span class="upload-icon" aria-hidden="true">↑</span>
         <span class="upload-title">Comprovante de pagamento</span>
         <span class="upload-subtitle">Clique para selecionar uma imagem</span>
       </label>
@@ -150,7 +151,7 @@
             <strong>{{ transaction.name }}</strong>
             <p>{{ transaction.category }}</p>
           </div>
-          <span>R$ {{ transaction.amount | number:'1.2-2' }}</span>
+          <span class="transaction-amount" [class.income]="transaction.type === 'income'">{{ transaction.type === 'income' ? '+' : '−' }} {{ formatCurrency(transaction.amount) }}</span>
         </div>
       </div>
     </div>
@@ -158,7 +159,7 @@
   <div class="card" *ngIf="activeTab === 'transactions'">
     <h2>Lançamentos realizados</h2>
     <p *ngIf="loading">Carregando lançamentos...</p>
-    <p *ngIf="!loading && transactions.length === 0">Nenhum lançamento cadastrado.</p>
+    <div class="empty-state" *ngIf="!loading && transactions.length === 0"><strong>Seu histórico começa aqui</strong><p>Adicione uma entrada ou saída para acompanhar suas movimentações.</p><button type="button" (click)="activeTab = 'overview'">Adicionar lançamento</button></div>
     <div class="transactions-list">
       <div class="transaction-item" *ngFor="let transaction of transactions">
         <div>
@@ -185,7 +186,7 @@
           <p class="eyebrow">Análise temporal</p>
           <h2>Comparação entre meses</h2>
         </div>
-        <span class="chip">Live</span>
+        <span class="chip">Por período</span>
       </div>
       <div class="comparison-form">
         <label>
