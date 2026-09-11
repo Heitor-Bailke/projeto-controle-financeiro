@@ -18,6 +18,7 @@ O backend fornece a API REST para autenticação, dashboard, categorias, transa�
 - Hash de senha com bcrypt.
 - Helmet, rate limit e CORS.
 - Sanitização de entradas.
+- Bloqueio progressivo após cinco falhas de login e logs de segurança sem credenciais.
 
 ## Execução
 

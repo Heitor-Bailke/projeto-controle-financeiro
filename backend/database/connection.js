@@ -12,7 +12,9 @@ const memoryStore = {
     { id: 'cat-3', name: 'Salário', type: 'income', color: '#10b981' },
     { id: 'cat-4', name: 'Transporte', type: 'expense', color: '#3b82f6' }
   ],
-  refreshTokens: []
+  refreshTokens: [],
+  passwordResetTokens: [],
+  loginAttempts: []
 };
 
 let pool = null;
@@ -54,6 +56,8 @@ function resetStore() {
     { id: 'cat-4', name: 'Transporte', type: 'expense', color: '#3b82f6' }
   ];
   memoryStore.refreshTokens = [];
+  memoryStore.passwordResetTokens = [];
+  memoryStore.loginAttempts = [];
 }
 
 module.exports = { initDatabase, query, isDatabaseConfigured, getStore, resetStore };

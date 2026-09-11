@@ -1,239 +1,101 @@
-<section class="dashboard-shell">
+﻿<section class="dashboard-shell">
   <header class="topbar">
     <div>
-      <p class="eyebrow">FLUXO <span class="brand-divider">/</span> FINANCEIRO</p>
+      <div class="brand"><img src="brand/hb-symbol.png" alt="HB Tech" width="42" height="36" /><span>HB TECH / FINANCE</span></div>
       <h1>Seu dinheiro, com clareza.</h1>
       <p class="page-subtitle">Acompanhe suas movimentações e organize o próximo passo.</p>
     </div>
-    <div class="header-actions"><span class="period-chip">{{ getMonthName(dashboard.monthNumber || currentMonth) }} / {{ dashboard.year || currentYear }}</span><button class="ghost" (click)="logout()">Sair</button></div>
+    <div class="header-actions"><span class="chip">{{ getMonthName(currentMonth) }} / {{ currentYear }}</span><button type="button" class="ghost" (click)="logout()">Sair</button></div>
   </header>
-
-  <div class="status" role="status" *ngIf="statusMessage">{{ statusMessage }}</div>
-
+  <div class="status toast" [class.error]="statusError" [attr.role]="statusError ? 'alert' : 'status'" *ngIf="statusMessage">{{ statusMessage }}<button type="button" class="text-button" (click)="statusMessage = ''" aria-label="Fechar mensagem">×</button></div>
   <nav class="tabs" aria-label="Seções do painel">
-    <button type="button" [class.active]="activeTab === 'overview'" [attr.aria-current]="activeTab === 'overview' ? 'page' : null" (click)="activeTab = 'overview'">Visão geral</button>
-    <button type="button" [class.active]="activeTab === 'transactions'" [attr.aria-current]="activeTab === 'transactions' ? 'page' : null" (click)="activeTab = 'transactions'">Lançamentos</button>
-    <button type="button" [class.active]="activeTab === 'comparison'" [attr.aria-current]="activeTab === 'comparison' ? 'page' : null" (click)="activeTab = 'comparison'">Comparar meses</button>
+    <button type="button" [class.active]="activeTab === 'overview'" [attr.aria-current]="activeTab === 'overview' ? 'page' : null" (click)="activeTab = 'overview'"><span class="desktop-label">Visão geral</span><span class="mobile-label">Início</span></button>
+    <button type="button" [class.active]="activeTab === 'transactions'" [attr.aria-current]="activeTab === 'transactions' ? 'page' : null" (click)="activeTab = 'transactions'"><span class="desktop-label">Lançamentos</span><span class="mobile-label">Lanç.</span></button>
+    <button type="button" [class.active]="activeTab === 'comparison'" [attr.aria-current]="activeTab === 'comparison' ? 'page' : null" (click)="activeTab = 'comparison'"><span class="desktop-label">Comparar meses</span><span class="mobile-label">Comparar</span></button>
     <button type="button" [class.active]="activeTab === 'insights'" [attr.aria-current]="activeTab === 'insights' ? 'page' : null" (click)="activeTab = 'insights'">Insights</button>
   </nav>
+  <div class="status error" role="alert" *ngIf="loadError">{{ loadError }} <button type="button" class="ghost" (click)="loadData()">Tentar novamente</button></div>
+  <app-summary-cards *ngIf="activeTab === 'overview' && !loadError" [income]="monthIncome" [expense]="monthExpense" [pending]="monthPending" [loading]="loading" />
+  <button class="new-entry" type="button" (click)="openEntry()">+ Novo lançamento</button>
 
-  <div class="stats-grid" *ngIf="activeTab === 'overview'">
-    <article class="card stat-card balance-card">
-      <p>Saldo do mês</p>
-      <strong>{{ formatCurrency(dashboard.balance || 0) }}</strong>
-    </article>
-    <article class="card stat-card">
-      <p>Total gasto</p>
-      <strong>{{ formatCurrency(dashboard.totalExpense || 0) }}</strong>
-    </article>
-    <article class="card stat-card">
-      <p>Total recebido</p>
-      <strong>{{ formatCurrency(dashboard.totalIncome || 0) }}</strong>
-    </article>
-    <article class="card stat-card">
-      <p>Economia</p>
-      <strong>{{ formatCurrency(dashboard.totalSaved || 0) }}</strong>
-    </article>
-  </div>
-
-  <div class="content-grid" *ngIf="activeTab === 'overview'">
-    <div class="card">
-      <p class="eyebrow">Organize seu dia a dia</p><h2>Novo lançamento</h2><p class="section-description">Registre uma entrada ou saída da sua conta.</p>
-      <form class="entry-form" [formGroup]="expenseForm" (ngSubmit)="submitExpense()">
-        <fieldset class="type-selector" [disabled]="saving">
-          <legend>Tipo de lançamento</legend>
+  <div class="overview-grid" *ngIf="activeTab === 'overview'">
+    <article class="card entry-card" #entryCard>
+      <p class="eyebrow">Organize seu dia a dia</p><h2>{{ editingId ? 'Editar lançamento' : 'Novo lançamento' }}</h2>
+      <p class="section-description">{{ editingId ? 'As alterações afetam somente este lançamento.' : 'Registre uma entrada ou saída em poucos passos.' }}</p>
+      <form class="entry-form" [formGroup]="expenseForm" (ngSubmit)="submitExpense()" novalidate>
+        <fieldset class="type-selector" [disabled]="saving || ocrLoading || !!editingId"><legend class="sr-only">Tipo de lançamento</legend>
           <button type="button" [class.ghost]="expenseForm.value.type !== 'expense'" [attr.aria-pressed]="expenseForm.value.type === 'expense'" (click)="setType('expense')">Saída</button>
           <button type="button" [class.ghost]="expenseForm.value.type !== 'income'" [attr.aria-pressed]="expenseForm.value.type === 'income'" (click)="setType('income')">Entrada</button>
         </fieldset>
-        <label>
-          Nome
-          <input formControlName="name" placeholder="Ex.: Compra do supermercado" maxlength="160" />
+        <label [class.imported]="importedFields.includes('name')">Nome <span class="import-tag" *ngIf="importedFields.includes('name')">Do comprovante</span>
+          <input formControlName="name" placeholder="Ex.: Supermercado" maxlength="160" [attr.aria-invalid]="invalid('name')" aria-describedby="entry-name-error" /><span class="field-error" id="entry-name-error" *ngIf="invalid('name')">Informe um nome de até 160 caracteres.</span>
         </label>
-        <label>
-          Descrição (opcional)
-          <input formControlName="description" placeholder="Detalhes adicionais do lançamento" />
+        <label [class.imported]="importedFields.includes('amount')">{{ expenseForm.value.schedule === 'installments' ? 'Valor total da compra' : 'Valor' }} (R$) <span class="import-tag" *ngIf="importedFields.includes('amount')">Do comprovante</span>
+          <input type="text" inputmode="decimal" placeholder="R$ 0,00" [value]="amountText" (input)="updateAmount($event)" (blur)="formatAmount()" [attr.aria-invalid]="invalid('amount')" aria-describedby="entry-amount-error" /><span class="field-error" id="entry-amount-error" *ngIf="invalid('amount')">Informe um valor maior que zero. Ex.: 125,50.</span>
         </label>
-        <label>
-          Categoria
-          <select formControlName="category">
-            <option value="" disabled>Selecione uma categoria</option>
-            <option *ngFor="let category of getAvailableCategories()" [value]="category.name">{{ category.name }}</option>
-          </select>
-        </label>
-        <p *ngIf="getAvailableCategories().length === 0">Cadastre uma categoria para este tipo na seção Categorias.</p>
-        <label>
-          {{ expenseForm.value.schedule === 'installments' ? 'Valor total da compra' : 'Valor' }} (R$)
-          <input type="text" inputmode="decimal" placeholder="R$ 0,00" [value]="amountText" (input)="updateAmount($event)" (blur)="formatAmount()" />
-          <small *ngIf="expenseForm.get('amount')?.touched && expenseForm.get('amount')?.invalid">Informe um valor maior que zero. Ex.: 125,50.</small>
-        </label>
-        <label>
-          Data
-          <input formControlName="date" type="date" />
-        </label>
-        <label>Forma de pagamento
-          <select formControlName="paymentMethod">
-            <option *ngFor="let method of ['Pix', 'Débito', 'Crédito', 'Dinheiro', 'Boleto', 'Transferência']" [value]="method">{{ method }}</option>
-          </select>
-        </label>
-        <label>Situação
-          <select formControlName="status">
-            <option value="settled">{{ expenseForm.value.type === 'income' ? 'Recebido' : 'Pago' }}</option>
-            <option value="pending">{{ expenseForm.value.type === 'income' ? 'A receber' : 'Pendente' }}</option>
-          </select>
-        </label>
-        <label>Frequência
-          <select formControlName="schedule">
-            <option value="single">Uma vez</option>
-            <option value="installments" *ngIf="expenseForm.value.type === 'expense'">Compra parcelada</option>
-            <option value="recurring">Repetir todo mês</option>
-          </select>
-        </label>
-        <label *ngIf="expenseForm.value.schedule === 'installments'">Número de parcelas
-          <input type="number" formControlName="installments" min="2" max="360" step="1" />
-          <small>O valor total será dividido entre as parcelas mensais. A data informada será a primeira parcela.</small>
-        </label>
-        <label *ngIf="expenseForm.value.schedule === 'recurring'">Quantidade de meses
-          <input type="number" formControlName="repeatMonths" min="2" max="360" step="1" />
-          <small>Inclui o mês da data informada. O mesmo valor será lançado em cada mês.</small>
-        </label>
-        <p *ngIf="expenseForm.value.schedule !== 'single'">A situação escolhida vale para o primeiro lançamento. Os seguintes serão registrados como pendentes.</p>
-        <button type="submit" [disabled]="saving">{{ saving ? 'Salvando…' : 'Salvar lançamento' }}</button>
+        <ng-container *ngIf="showDetails">
+          <label [class.imported]="importedFields.includes('category')">Categoria <span class="import-tag" *ngIf="importedFields.includes('category')">Do comprovante</span>
+            <select formControlName="category" [attr.aria-invalid]="invalid('category')" aria-describedby="entry-category-error"><option value="" disabled>Selecione uma categoria</option><option *ngFor="let category of getAvailableCategories()" [value]="category.name">{{ category.name }}</option><option *ngIf="editingId && expenseForm.value.category" [value]="expenseForm.value.category">{{ expenseForm.value.category }} (atual)</option></select>
+            <span class="field-error" id="entry-category-error" *ngIf="invalid('category')">Selecione ou cadastre uma categoria.</span>
+          </label>
+          <label [class.imported]="importedFields.includes('date')">Data <span class="import-tag" *ngIf="importedFields.includes('date')">Do comprovante</span>
+            <input formControlName="date" type="date" [attr.aria-invalid]="invalid('date')" aria-describedby="entry-date-error" /><span class="field-error" id="entry-date-error" *ngIf="invalid('date')">Informe uma data válida.</span>
+          </label>
+          <label>Forma de pagamento<select formControlName="paymentMethod"><option *ngFor="let method of ['Pix', 'Débito', 'Crédito', 'Dinheiro', 'Boleto', 'Transferência']" [value]="method">{{ method }}</option></select></label>
+          <label>Situação<select formControlName="status"><option value="settled">{{ expenseForm.value.type === 'income' ? 'Recebido' : 'Pago' }}</option><option value="pending">{{ expenseForm.value.type === 'income' ? 'A receber' : 'Pendente' }}</option></select></label>
+          <label class="full">Descrição (opcional)<input formControlName="description" placeholder="Detalhes adicionais" /></label>
+          <label *ngIf="!editingId">Frequência<select formControlName="schedule"><option value="single">Uma vez</option><option value="installments" *ngIf="expenseForm.value.type === 'expense'">Compra parcelada</option><option value="recurring">Repetir todo mês</option></select></label>
+          <label *ngIf="expenseForm.value.schedule === 'installments'">Número de parcelas<input type="number" formControlName="installments" min="2" max="360" step="1" [attr.aria-invalid]="invalid('installments')" aria-describedby="installments-error" /><span class="field-error" id="installments-error" *ngIf="invalid('installments')">Informe um número inteiro entre 2 e 360.</span><span class="helper-text">O valor total será dividido entre as parcelas mensais.</span></label>
+          <label *ngIf="expenseForm.value.schedule === 'recurring'">Quantidade de meses<input type="number" formControlName="repeatMonths" min="2" max="360" step="1" [attr.aria-invalid]="invalid('repeatMonths')" aria-describedby="repeat-error" /><span class="field-error" id="repeat-error" *ngIf="invalid('repeatMonths')">Informe um número inteiro entre 2 e 360.</span><span class="helper-text">Inclui o primeiro mês. O valor se repete em cada mês.</span></label>
+          <p class="helper-text full" *ngIf="expenseForm.value.schedule !== 'single'">A situação escolhida vale para o primeiro lançamento. Os seguintes serão registrados como pendentes.</p>
+        </ng-container>
+        <label class="review-check full" *ngIf="ocrNeedsReview"><input type="checkbox" [(ngModel)]="ocrReviewed" [ngModelOptions]="{standalone: true}" />Conferi os dados preenchidos pelo comprovante.</label>
+        <div class="form-actions full"><button type="submit" [disabled]="saving || ocrLoading"><span class="spinner" *ngIf="saving" aria-hidden="true"></span>{{ saving ? 'Salvando…' : editingId ? 'Salvar alterações' : showDetails ? 'Salvar lançamento' : 'Continuar e salvar lançamento' }}</button><button type="button" class="ghost" *ngIf="showDetails || editingId" [disabled]="saving || ocrLoading" (click)="cancelEntry()">Cancelar</button></div>
       </form>
-    </div>
-
-    <div class="card">
-      <p class="eyebrow">Menos digitação</p><h2>Importar comprovante</h2><p class="section-description">Selecione uma imagem para preencher os dados do lançamento. Revise antes de salvar.</p>
-      <div class="status" *ngIf="ocrStatusMessage">{{ ocrStatusMessage }}</div>
-      <label class="upload-card" for="receipt-upload">
-        <span class="upload-icon" aria-hidden="true">↑</span>
-        <span class="upload-title">Comprovante de pagamento</span>
-        <span class="upload-subtitle">Clique para selecionar uma imagem</span>
-      </label>
-      <input id="receipt-upload" type="file" accept="image/*" (change)="handleFileChange($event)" />
-      <div class="ocr-preview" *ngIf="ocrPreview">{{ ocrPreview }}</div>
-    </div>
+    </article>
+    <aside class="side-stack">
+      <article class="card">
+        <p class="eyebrow">Menos digitação</p><h2>Importar comprovante</h2><p class="section-description">Selecione uma imagem e revise os dados antes de salvar.</p>
+        <label class="upload-card" [class.busy]="ocrLoading || saving" for="receipt-upload"><span class="upload-icon" aria-hidden="true">↑</span><span>{{ ocrLoading ? 'Lendo comprovante…' : 'Selecionar comprovante' }}<small>PNG, JPG ou WebP · até 5 MB</small></span><span class="spinner" *ngIf="ocrLoading" aria-hidden="true"></span>
+          <input id="receipt-upload" type="file" accept="image/png,image/jpeg,image/webp" [disabled]="ocrLoading || saving" (change)="handleFileChange($event)" />
+        </label>
+        <div class="status" [class.error]="ocrError" [class.info]="!ocrError" [attr.role]="ocrError ? 'alert' : 'status'" *ngIf="ocrStatusMessage">{{ ocrStatusMessage }}</div>
+        <div class="receipt-preview" *ngIf="ocrImage"><img [src]="ocrImage" alt="Prévia do comprovante selecionado" /><p>{{ ocrFileName }}</p><button type="button" class="text-button" (click)="openEntry()" *ngIf="ocrNeedsReview">Revisar campos preenchidos</button></div>
+        <details *ngIf="ocrPreview"><summary>Ver texto identificado</summary><pre>{{ ocrPreview }}</pre></details>
+      </article>
+      <article class="card"><div class="card-head"><h2>Últimos lançamentos</h2><button class="text-button" type="button" (click)="activeTab = 'transactions'">Ver todos</button></div><p role="status" class="muted" *ngIf="loading">Carregando…</p><app-transaction-list *ngIf="!loading && !loadError" [items]="transactions.slice(0, 4)" [compact]="true" (add)="openEntry()" /></article>
+    </aside>
+      <article class="card category-card"><p class="eyebrow">Tudo no seu lugar</p><h2>Categorias</h2>
+        <ul class="category-list"><li *ngFor="let category of categories"><div><strong>{{ category.name }}</strong><span class="helper-text">{{ category.type === 'income' ? 'Entrada' : 'Despesa' }}</span></div><button type="button" class="text-button danger-text" *ngIf="category.userId" (click)="deleteCategory(category.id)" [attr.aria-label]="'Excluir categoria ' + category.name">Excluir</button><span class="helper-text" *ngIf="!category.userId">Padrão</span></li></ul>
+        <p class="helper-text" *ngIf="!categories.length && !categoryError">Crie uma categoria para organizar seus lançamentos.</p>
+        <div class="status" [class.error]="categoryError" role="status" *ngIf="categoryStatusMessage">{{ categoryStatusMessage }}<button type="button" class="ghost" *ngIf="categorySessionExpired" (click)="logout()">Entrar novamente</button></div>
+        <form class="category-form" [formGroup]="categoryForm" (ngSubmit)="submitCategory()" novalidate><label>Nome da categoria<input formControlName="name" maxlength="120" placeholder="Ex.: Alimentação" [attr.aria-invalid]="categoryForm.get('name')?.touched && categoryForm.get('name')?.invalid" aria-describedby="category-error" /><span class="field-error" id="category-error" *ngIf="categoryForm.get('name')?.touched && categoryForm.get('name')?.invalid">Informe um nome de até 120 caracteres.</span></label><label>Tipo<select formControlName="type"><option value="expense">Despesa</option><option value="income">Entrada</option></select></label><button type="submit" [disabled]="savingCategory">{{ savingCategory ? 'Criando…' : 'Criar categoria' }}</button></form>
+      </article>
   </div>
+  <p class="helper-text" *ngIf="activeTab === 'overview'">Os totais são do mês atual e consideram apenas lançamentos pagos e recebidos. Pendentes mostra as despesas ainda a pagar.</p>
 
-  <div class="content-grid" *ngIf="activeTab === 'overview'">
-    <div class="card">
-      <h2>Categorias</h2>
-      <ul>
-        <li *ngFor="let category of categories">
-          {{ category.name }}
-          <button type="button" class="inline-delete" (click)="deleteCategory(category.id)">Excluir</button>
-        </li>
-      </ul>
-      <div class="status" [class.category-error]="categoryError" role="status" *ngIf="categoryStatusMessage">
-        {{ categoryStatusMessage }}
-        <button type="button" *ngIf="categorySessionExpired" (click)="logout()">Entrar novamente</button>
-      </div>
-      <form [formGroup]="categoryForm" (ngSubmit)="submitCategory()">
-        <label>
-          Nome
-          <input formControlName="name" />
-        </label>
-        <label>
-          Tipo
-          <select formControlName="type">
-            <option value="expense">Despesa</option>
-            <option value="income">Entrada</option>
-          </select>
-        </label>
-        <button type="submit" [disabled]="savingCategory">{{ savingCategory ? 'Criando…' : 'Criar categoria' }}</button>
-      </form>
-    </div>
+  <article class="card" *ngIf="activeTab === 'transactions'"><p class="eyebrow">Lançamentos</p><div class="card-head"><h2>Histórico</h2><span class="chip">{{ filteredTransactions.length }} registros</span></div>
+    <div class="filters" role="group" aria-label="Filtrar lançamentos"><button *ngFor="let filter of filterOptions" type="button" class="ghost" [class.selected]="transactionFilter === filter.id" [attr.aria-pressed]="transactionFilter === filter.id" (click)="transactionFilter = filter.id">{{ filter.label }}</button></div>
+    <p role="status" class="muted" *ngIf="loading">Carregando lançamentos…</p>
+    <app-transaction-list *ngIf="!loading && !loadError" [items]="filteredTransactions" [emptyTitle]="transactions.length ? 'Nenhum lançamento neste filtro' : 'Seu histórico começa aqui'" [emptyDescription]="transactions.length ? 'Escolha outro filtro ou adicione um lançamento.' : 'Registre sua primeira entrada ou saída.'" (add)="openEntry()" (edit)="editTransaction($event)" (remove)="requestDeleteTransaction($event)" />
+  </article>
 
-    <div class="card">
-      <h2>Últimos lançamentos</h2>
-      <div class="transactions-list">
-        <div class="transaction-item" *ngFor="let transaction of transactions.slice(0, 6)">
-          <div>
-            <strong>{{ transaction.name }}</strong>
-            <p>{{ transaction.category }}</p>
-          </div>
-          <span class="transaction-amount" [class.income]="transaction.type === 'income'">{{ transaction.type === 'income' ? '+' : '−' }} {{ formatCurrency(transaction.amount) }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="card" *ngIf="activeTab === 'transactions'">
-    <h2>Lançamentos realizados</h2>
-    <p *ngIf="loading">Carregando lançamentos...</p>
-    <div class="empty-state" *ngIf="!loading && transactions.length === 0"><strong>Seu histórico começa aqui</strong><p>Adicione uma entrada ou saída para acompanhar suas movimentações.</p><button type="button" (click)="activeTab = 'overview'">Adicionar lançamento</button></div>
-    <div class="transactions-list">
-      <div class="transaction-item" *ngFor="let transaction of transactions">
-        <div>
-          <strong>{{ transaction.name }}</strong>
-          <p>
-            {{ transaction.date | date:'dd/MM/yyyy':'UTC' }} · {{ transaction.category }}
-            · {{ transaction.type === 'income' ? 'Entrada' : 'Despesa' }}
-            · {{ transaction.status === 'pending' ? (transaction.type === 'income' ? 'A receber' : 'Pendente') : (transaction.type === 'income' ? 'Recebido' : 'Pago') }}
-          </p>
-          <p *ngIf="transaction.description">{{ transaction.description }}</p>
-          <p *ngIf="transaction.paymentMethod">{{ transaction.paymentMethod }}</p>
-        </div>
-        <span>{{ formatCurrency(transaction.amount) }}</span>
-      </div>
-    </div>
-  </div>
+  <article class="card" *ngIf="activeTab === 'comparison'"><div class="card-head"><div><p class="eyebrow">Análise temporal</p><h2>Comparação entre meses</h2></div><span class="chip">Por período</span></div>
+    <div class="comparison-form"><label>Primeiro mês<select [(ngModel)]="baseMonth"><option *ngFor="let month of months" [ngValue]="month">{{ getMonthName(month) }}</option></select></label><label>Ano do primeiro mês<input type="number" [(ngModel)]="baseYear" min="1900" max="9999" [attr.aria-invalid]="!comparisonValid" /></label><label>Segundo mês<select [(ngModel)]="comparisonMonth"><option *ngFor="let month of months" [ngValue]="month">{{ getMonthName(month) }}</option></select></label><label>Ano do segundo mês<input type="number" [(ngModel)]="comparisonYear" min="1900" max="9999" [attr.aria-invalid]="!comparisonValid" /></label></div>
+    <p class="field-error" *ngIf="!comparisonValid">Informe anos inteiros entre 1900 e 9999.</p>
+    <ng-container *ngIf="comparisonValid && !loadError && !loading"><app-bar-chart [rows]="comparisonBars" label="Despesas por período" /><div class="comparison-highlight"><span class="chip">{{ comparisonChange }}</span><p>{{ getComparisonSummary() }}</p><small class="helper-text">Inclui despesas pagas e pendentes. Meses sem registros aparecem com R$ 0,00.</small></div></ng-container>
+    <p role="status" *ngIf="loading">Carregando comparação…</p>
+  </article>
 
-  <p *ngIf="activeTab === 'overview'">Os totais consideram lançamentos pagos e recebidos. Pendências podem ser consultadas na aba Lançamentos.</p>
-
-  <div class="content-grid" *ngIf="activeTab === 'comparison'">
-    <div class="card comparison-card">
-      <div class="card-head">
-        <div>
-          <p class="eyebrow">Análise temporal</p>
-          <h2>Comparação entre meses</h2>
-        </div>
-        <span class="chip">Por período</span>
-      </div>
-      <div class="comparison-form">
-        <label>
-          Primeiro mês
-          <select [(ngModel)]="baseMonth">
-            <option *ngFor="let month of months" [ngValue]="month">{{ getMonthName(month) }}</option>
-          </select>
-        </label>
-        <label>
-          Ano do primeiro mês
-          <input type="number" [(ngModel)]="baseYear" min="1900" max="9999" />
-        </label>
-        <label>
-          Segundo mês
-          <select [(ngModel)]="comparisonMonth">
-            <option *ngFor="let month of months" [ngValue]="month">{{ getMonthName(month) }}</option>
-          </select>
-        </label>
-        <label>
-          Ano do segundo mês
-          <input type="number" [(ngModel)]="comparisonYear" min="1900" max="9999" />
-        </label>
-      </div>
-      <div class="comparison-highlight">
-        <h3>{{ getMonthName(baseMonth) }}/{{ baseYear }} × {{ getMonthName(comparisonMonth) }}/{{ comparisonYear }}</h3>
-        <p>Primeiro período: {{ formatCurrency(getMonthExpenses(baseMonth, baseYear)) }}</p>
-        <p>Segundo período: {{ formatCurrency(getMonthExpenses(comparisonMonth, comparisonYear)) }}</p>
-        <strong>{{ getComparisonSummary() }}</strong>
-        <p>A comparação considera apenas despesas. Períodos sem despesas registradas aparecem com R$ 0,00.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="content-grid" *ngIf="activeTab === 'insights'">
-    <div class="card insights-card">
-      <div class="card-head">
-        <div>
-          <p class="eyebrow">Inteligência financeira</p>
-          <h2>Resumo executivo</h2>
-        </div>
-      </div>
-      <p class="insight-main">{{ getInsightsMessage() }}</p>
-      <div class="insight-grid">
-        <button type="button" class="insight-pill" (click)="activeTab = 'transactions'">Ver lançamentos: {{ transactions.length }}</button>
-        <div class="insight-pill">Categorias: {{ categories.length }}</div>
-        <div class="insight-pill">Mês atual: {{ getMonthName(currentMonth).toUpperCase() }}</div>
-      </div>
-    </div>
-  </div>
+  <article class="card" *ngIf="activeTab === 'insights'"><p class="eyebrow">Inteligência financeira</p><h2>Resumo executivo</h2><p class="helper-text">{{ getMonthName(currentMonth) }} / {{ currentYear }} · despesas pagas</p>
+    <p role="status" *ngIf="loading">Carregando resumo…</p>
+    <ng-container *ngIf="!loading && !loadError"><p class="insight-main">{{ monthIncome > monthExpense ? 'Seu mês está com saldo positivo.' : monthExpense > monthIncome ? 'Suas saídas superam as entradas neste mês.' : 'Entradas e saídas estão equilibradas neste mês.' }}</p>
+    <p class="muted" *ngIf="categoryBars.length">Seu maior gasto está em {{ categoryBars[0].label }}.</p>
+    <div class="insight-grid"><div><strong>{{ topCategoryShare }}</strong><span>{{ categoryBars[0]?.label || 'Sem despesas pagas' }}</span></div><button type="button" class="ghost" (click)="activeTab = 'transactions'"><strong>{{ monthlyTransactions.length }}</strong><span>Lançamentos no mês</span></button><div><strong>{{ categories.length }}</strong><span>Categorias</span></div></div>
+    <app-bar-chart [rows]="categoryBars" label="Despesas pagas por categoria" /></ng-container>
+  </article>
 </section>
+<dialog #confirmDialog class="dialog" aria-labelledby="delete-title" aria-describedby="delete-description" (cancel)="deleting ? $event.preventDefault() : closeDeletion()">
+  <h2 id="delete-title">Excluir {{ deletion?.kind === 'category' ? 'categoria' : 'lançamento' }}?</h2><strong>{{ deletion?.name }}</strong><p id="delete-description">{{ deletion?.message }}</p><div class="status error" role="alert" *ngIf="deleteError">{{ deleteError }}</div>
+  <div class="dialog-actions"><button autofocus type="button" class="ghost" [disabled]="deleting" (click)="closeDeletion()">Cancelar</button><button type="button" class="danger" [disabled]="deleting" (click)="confirmDeletion()">{{ deleting ? 'Excluindo…' : 'Excluir' }}</button></div>
+</dialog>

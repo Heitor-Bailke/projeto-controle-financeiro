@@ -17,7 +17,8 @@
     "express-rate-limit": "^7.0.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.1",
+    "multer": "^2.3.0",
+    "nodemailer": "^10.0.6",
     "pg": "^8.5.1",
     "sanitize-html": "^2.1.0",
     "tesseract.js": "^5.0.1",
@@ -25,5 +26,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
+  },
+  "overrides": {
+    "qs": "6.16.0"
   }
 }

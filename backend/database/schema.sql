@@ -44,3 +44,20 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+
+CREATE TABLE IF NOT EXISTS login_attempts (
+  email VARCHAR(255) PRIMARY KEY,
+  failed_count INT NOT NULL DEFAULT 0,
+  locked_until TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

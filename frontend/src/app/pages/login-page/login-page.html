@@ -1,55 +1,50 @@
-<section class="auth-shell">
-  <div class="card hero-card">
-    <p class="eyebrow">FLUXO / FINANCEIRO</p>
-    <h1>Mais clareza para cuidar do seu dinheiro.</h1>
-    <p>Suas entradas, despesas e próximos passos, organizados em um só lugar.</p>
-  <div class="hero-features"><span>01 <strong>Organize suas movimentações</strong></span><span>02 <strong>Acompanhe cada mês</strong></span><span>03 <strong>Enxergue para onde seu dinheiro vai</strong></span></div>
-  </div>
-
-  <div class="card forms-card">
-    <div class="status" role="status" *ngIf="statusMessage">{{ statusMessage }}</div>
-
-    <div class="form-block" *ngIf="!showRegister">
-      <p class="eyebrow">BEM-VINDO DE VOLTA</p><h2>Acesse sua conta</h2><p class="form-description">Seu controle financeiro começa aqui.</p>
-      <form [formGroup]="loginForm" (ngSubmit)="submitLogin()">
-        <label>
-          E-mail
-          <input formControlName="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" />
-        </label>
-        <label>
-          Senha
-          <input formControlName="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" />
-        </label>
-        <button type="submit" [disabled]="isLoading">{{ isLoading ? 'Entrando...' : 'Entrar' }}</button>
-      </form>
-      <button class="switch-form" type="button" [disabled]="isLoading" (click)="switchForm(true)">Criar conta</button>
+﻿<section class="auth-shell">
+  <div class="auth-layout">
+    <div class="hero-card">
+      <img class="brand-logo" src="brand/hb-tech-logo.webp" alt="HB Tech Solutions" width="210" height="158" fetchpriority="high" />
+      <p class="eyebrow">HB TECH / FINANCE</p>
+      <h1>Mais clareza para cuidar do seu dinheiro.</h1>
+      <p class="hero-description">Suas entradas, despesas e próximos passos organizados em um só lugar.</p>
+      <ol class="hero-features">
+        <li><span>01</span>Organize suas movimentações</li>
+        <li><span>02</span>Acompanhe cada mês</li>
+        <li><span>03</span>Enxergue seus padrões</li>
+      </ol>
+      <div class="trust-note"><strong>Visão simples.<br /><span>Decisões melhores.</span></strong><p>Dados organizados com foco em privacidade e segurança.</p></div>
     </div>
-
-    <div class="form-block" *ngIf="showRegister">
-      <p class="eyebrow">SEU PRÓXIMO PASSO</p><h2>Crie sua conta</h2><p class="form-description">Comece a organizar suas finanças.</p>
-      <form [formGroup]="registerForm" (ngSubmit)="submitRegister()">
-        <label>
-          Nome
-          <input formControlName="name" autocomplete="name" placeholder="Seu nome" />
-        </label>
-        <label>
-          E-mail
-          <input formControlName="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" />
-        </label>
-        <label>
-          Senha
-          <input formControlName="password" type="password" autocomplete="new-password" />
-        </label>
-        <label>
-          Confirmar senha
-          <input formControlName="confirmPassword" type="password" autocomplete="new-password" />
-        </label>
-        <p class="helper-text" *ngIf="registerForm.hasError('passwordMismatch') && registerForm.touched">
-          As senhas devem ser iguais.
-        </p>
-        <button type="submit" [disabled]="isLoading">Cadastrar</button>
-      </form>
-      <button class="switch-form" type="button" [disabled]="isLoading" (click)="switchForm(false)">Voltar para entrar</button>
+    <div class="forms-card">
+      <div class="status" [class.error]="statusError" [attr.role]="statusError ? 'alert' : 'status'" *ngIf="statusMessage">{{ statusMessage }}</div>
+      <div *ngIf="!showRegister && !recoveryMode">
+        <p class="eyebrow">Bem-vindo de volta</p><h2>Acesse sua conta</h2><p class="form-description">Seu controle financeiro começa aqui.</p>
+        <form [formGroup]="loginForm" (ngSubmit)="submitLogin()" novalidate>
+          <label>E-mail<input formControlName="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" [attr.aria-invalid]="invalid(loginForm, 'email')" aria-describedby="login-email-error" /><span id="login-email-error" class="field-error" *ngIf="invalid(loginForm, 'email')">Informe um e-mail válido.</span></label>
+          <label>Senha<input formControlName="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" [attr.aria-invalid]="invalid(loginForm, 'password')" aria-describedby="login-password-error" /><span id="login-password-error" class="field-error" *ngIf="invalid(loginForm, 'password')">Informe sua senha.</span></label>
+          <button type="button" class="text-button recovery" (click)="startRecovery()">Esqueceu a senha?</button>
+          <p id="recovery-help" class="status info" *ngIf="recoveryHelp">A recuperação por e-mail ainda não está disponível. Solicite ajuda ao administrador da sua instalação para recuperar o acesso.</p>
+          <button type="submit" [disabled]="isLoading"><span class="spinner" *ngIf="isLoading" aria-hidden="true"></span>{{ isLoading ? 'Entrando…' : 'Entrar' }}</button>
+        </form>
+        <div class="separator">ou</div>
+        <button class="ghost switch-form" type="button" [disabled]="isLoading" (click)="switchForm(true)">Criar uma conta</button>
+      </div>
+      <div *ngIf="recoveryMode">
+        <p class="eyebrow">Recupere seu acesso</p><h2>Esqueceu sua senha?</h2><p class="form-description">Informe seu e-mail e enviaremos um link seguro para criar uma nova senha.</p>
+        <form [formGroup]="loginForm" (ngSubmit)="submitRecovery()" novalidate>
+          <label>E-mail<input formControlName="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" [attr.aria-invalid]="invalid(loginForm, 'email')" aria-describedby="recovery-email-error" /><span id="recovery-email-error" class="field-error" *ngIf="invalid(loginForm, 'email')">Informe um e-mail válido.</span></label>
+          <button type="submit" [disabled]="isLoading"><span class="spinner" *ngIf="isLoading" aria-hidden="true"></span>{{ isLoading ? 'Enviando...' : 'Enviar link de recuperação' }}</button>
+        </form>
+        <button class="ghost switch-form" type="button" [disabled]="isLoading" (click)="switchForm(false)">Voltar para entrar</button>
+      </div>
+      <div *ngIf="showRegister">
+        <p class="eyebrow">Seu próximo passo</p><h2>Crie sua conta</h2><p class="form-description">Comece a organizar suas finanças.</p>
+        <form [formGroup]="registerForm" (ngSubmit)="submitRegister()" novalidate>
+          <label>Nome<input formControlName="name" autocomplete="name" maxlength="120" placeholder="Seu nome" [attr.aria-invalid]="invalid(registerForm, 'name')" aria-describedby="register-name-error" /><span id="register-name-error" class="field-error" *ngIf="invalid(registerForm, 'name')">Informe seu nome (até 120 caracteres).</span></label>
+          <label>E-mail<input formControlName="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" [attr.aria-invalid]="invalid(registerForm, 'email')" aria-describedby="register-email-error" /><span id="register-email-error" class="field-error" *ngIf="invalid(registerForm, 'email')">Informe um e-mail válido.</span></label>
+          <label>Senha<input formControlName="password" type="password" autocomplete="new-password" placeholder="Pelo menos 8 caracteres" [attr.aria-invalid]="invalid(registerForm, 'password')" aria-describedby="register-password-error" /><span id="register-password-error" class="field-error" *ngIf="invalid(registerForm, 'password')">Use entre 8 e 128 caracteres.</span></label>
+          <label>Confirmar senha<input formControlName="confirmPassword" type="password" autocomplete="new-password" [attr.aria-invalid]="registerForm.touched && (registerForm.hasError('passwordMismatch') || invalid(registerForm, 'confirmPassword'))" aria-describedby="confirm-password-error" /><span id="confirm-password-error" class="field-error" *ngIf="registerForm.touched && (registerForm.hasError('passwordMismatch') || invalid(registerForm, 'confirmPassword'))">Confirme a mesma senha nos dois campos.</span></label>
+          <button type="submit" [disabled]="isLoading"><span class="spinner" *ngIf="isLoading" aria-hidden="true"></span>{{ isLoading ? 'Cadastrando…' : 'Cadastrar' }}</button>
+        </form>
+        <button class="ghost switch-form" type="button" [disabled]="isLoading" (click)="switchForm(false)">Voltar para entrar</button>
+      </div>
     </div>
   </div>
 </section>

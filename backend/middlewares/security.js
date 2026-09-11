@@ -3,9 +3,9 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { sanitizeInput } = require('../utils/sanitize');
-const { corsOrigin } = require('../config/env');
+const { corsOrigin, nodeEnv } = require('../config/env');
 
-function isOriginAllowed(origin) {
+function isOriginAllowed(origin, environment = nodeEnv) {
   if (!origin) {
     return true;
   }
@@ -19,7 +19,7 @@ function isOriginAllowed(origin) {
     return true;
   }
 
-  return /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  return environment !== 'production' && /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
 function applySecurity(app) {
@@ -37,6 +37,12 @@ function applySecurity(app) {
     credentials: true
   }));
   app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+  app.use((req, res, next) => {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.headers.origin && !isOriginAllowed(req.headers.origin)) {
+      return res.status(403).json({ message: 'Origem não permitida.' });
+    }
+    return next();
+  });
   app.use(sanitizeInput);
 }
 

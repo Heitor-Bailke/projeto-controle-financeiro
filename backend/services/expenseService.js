@@ -51,4 +51,38 @@ async function listTransactions(userId, filters = {}) {
   return getStore().transactions.filter((item) => item.userId === userId).filter((item) => !filters.type || item.type === filters.type).filter((item) => !filters.month || new Date(item.date).getMonth() + 1 === Number(filters.month)).filter((item) => !filters.year || new Date(item.date).getFullYear() === Number(filters.year)).sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
-module.exports = { createTransaction, listTransactions, buildTransactions };
+async function updateTransaction(userId, id, changes) {
+  const existing = isDatabaseConfigured()
+    ? (await query('SELECT * FROM transactions WHERE id = $1 AND user_id = $2', [id, userId])).rows[0]
+    : getStore().transactions.find(item => item.id === id && item.userId === userId);
+  if (!existing) throw Object.assign(new Error('Lançamento não encontrado.'), { statusCode: 404 });
+  const current = isDatabaseConfigured() ? { ...mapTransaction(existing), status: existing.status } : existing;
+  const fields = ['name', 'description', 'type', 'category', 'amount', 'date', 'paymentMethod', 'status'];
+  const next = { ...current };
+  for (const field of fields) if (changes[field] !== undefined) next[field] = changes[field];
+  // A edição afeta somente esta ocorrência, sem recriar parcelas ou repetições.
+  validateTransaction({ ...next, installments: 1, recurring: false });
+  next.amount = Number(next.amount);
+  if (isDatabaseConfigured()) {
+    const result = await query('UPDATE transactions SET name=$3, description=$4, type=$5, category=$6, amount=$7, date=$8, payment_method=$9, status=$10 WHERE id=$1 AND user_id=$2 RETURNING *',
+      [id, userId, next.name.trim(), next.description || null, next.type, next.category || null, next.amount, next.date, next.paymentMethod || null, next.status || 'settled']);
+    if (!result.rowCount) throw Object.assign(new Error('Lançamento não encontrado.'), { statusCode: 404 });
+    return { ...mapTransaction(result.rows[0]), status: result.rows[0].status };
+  }
+  Object.assign(existing, next);
+  return existing;
+}
+
+async function deleteTransaction(userId, id) {
+  if (isDatabaseConfigured()) {
+    const result = await query('DELETE FROM transactions WHERE id=$1 AND user_id=$2 RETURNING id', [id, userId]);
+    if (!result.rowCount) throw Object.assign(new Error('Lançamento não encontrado.'), { statusCode: 404 });
+    return;
+  }
+  const rows = getStore().transactions;
+  const index = rows.findIndex(item => item.id === id && item.userId === userId);
+  if (index < 0) throw Object.assign(new Error('Lançamento não encontrado.'), { statusCode: 404 });
+  rows.splice(index, 1);
+}
+
+module.exports = { createTransaction, listTransactions, buildTransactions, updateTransaction, deleteTransaction };

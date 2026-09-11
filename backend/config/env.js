@@ -15,7 +15,7 @@ module.exports = {
   jwtRefreshSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:4200',
+  corsOrigin: process.env.CORS_ORIGIN || (nodeEnv === 'development' ? 'http://localhost:4200' : ''),
   databaseUrl: process.env.DATABASE_URL || '',
   uploadDir: process.env.UPLOAD_DIR || './uploads',
   maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES || 5 * 1024 * 1024),
@@ -23,5 +23,13 @@ module.exports = {
   ocrProvider: process.env.OCR_PROVIDER || 'tesseract',
   openAiApiKey: process.env.OPENAI_API_KEY || '',
   azureVisionEndpoint: process.env.AZURE_VISION_ENDPOINT || '',
-  azureVisionKey: process.env.AZURE_VISION_KEY || ''
+  azureVisionKey: process.env.AZURE_VISION_KEY || '',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4200',
+  smtpHost: process.env.SMTP_HOST || '',
+  smtpPort: Number(process.env.SMTP_PORT || 587),
+  smtpSecure: process.env.SMTP_SECURE === 'true',
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPassword: process.env.SMTP_PASSWORD || '',
+  smtpFrom: process.env.SMTP_FROM || 'HB TECH SOLUTIONS <no-reply@hbtechsolutions.com>',
+  cookieSecure: process.env.COOKIE_SECURE === 'true' || nodeEnv === 'production'
 };

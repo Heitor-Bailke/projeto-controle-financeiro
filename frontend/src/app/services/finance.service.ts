@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 
 export interface AuthResponse {
   accessToken: string;
@@ -25,64 +25,80 @@ export interface DashboardResponse {
 @Injectable({ providedIn: 'root' })
 export class FinanceService {
   private readonly apiUrl = 'http://localhost:3000/api';
-  private readonly tokenKey = 'contas_access_token';
-  private readonly refreshTokenKey = 'contas_refresh_token';
+  private sessionActive = false;
 
   constructor(private http: HttpClient) {}
 
   login(payload: { email: string; password: string }): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, payload).pipe(
-      tap((response) => this.storeTokens(response))
+    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, payload, { withCredentials: true }).pipe(
+      map((response) => { this.sessionActive = true; return response; })
     );
   }
 
   register(payload: { name: string; email: string; password: string }): Observable<any> {
-    return this.http.post(`${this.apiUrl}/auth/register`, payload);
+    return this.http.post(`${this.apiUrl}/auth/register`, payload, { withCredentials: true });
+  }
+
+  requestPasswordReset(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/forgot-password`, { email }, { withCredentials: true });
+  }
+
+  resetPassword(payload: { token: string; newPassword: string }): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/reset-password`, payload, { withCredentials: true });
   }
 
   getDashboard(): Observable<DashboardResponse> {
-    return this.http.get<DashboardResponse>(`${this.apiUrl}/dashboard`);
+    return this.http.get<DashboardResponse>(`${this.apiUrl}/dashboard`, { withCredentials: true });
   }
 
   getTransactions(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/transactions`);
+    return this.http.get<any[]>(`${this.apiUrl}/transactions`, { withCredentials: true });
   }
 
   createTransaction(payload: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/transactions`, payload);
+    return this.http.post(`${this.apiUrl}/transactions`, payload, { withCredentials: true });
+  }
+
+  updateTransaction(id: string, payload: any): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/transactions/${id}`, payload, { withCredentials: true });
+  }
+
+  deleteTransaction(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/transactions/${id}`, { withCredentials: true });
   }
 
   getCategories(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/categories`);
+    return this.http.get<any[]>(`${this.apiUrl}/categories`, { withCredentials: true });
   }
 
   createCategory(payload: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/categories`, payload);
+    return this.http.post(`${this.apiUrl}/categories`, payload, { withCredentials: true });
   }
 
   deleteCategory(id: string): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/categories/${id}`);
+    return this.http.delete(`${this.apiUrl}/categories/${id}`, { withCredentials: true });
   }
 
   parseOcr(payload: { imageBase64: string; mimeType: string }): Observable<any> {
-    return this.http.post(`${this.apiUrl}/ocr/parse`, payload);
+    return this.http.post(`${this.apiUrl}/ocr/parse`, payload, { withCredentials: true });
   }
 
   logout(): void {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.refreshTokenKey);
+    this.http.post(`${this.apiUrl}/auth/logout`, {}, { withCredentials: true }).subscribe({ next: () => { this.sessionActive = false; }, error: () => { this.sessionActive = false; } });
   }
 
   isAuthenticated(): boolean {
-    return !!this.getAccessToken();
+    return this.sessionActive;
   }
 
   getAccessToken(): string | null {
-    return localStorage.getItem(this.tokenKey);
+    return null;
   }
 
-  private storeTokens(response: AuthResponse): void {
-    localStorage.setItem(this.tokenKey, response.accessToken);
-    localStorage.setItem(this.refreshTokenKey, response.refreshToken);
+  currentUser(): Observable<boolean> {
+    return this.http.get(`${this.apiUrl}/auth/me`, { withCredentials: true }).pipe(
+      map(() => { this.sessionActive = true; return true; }),
+      catchError(() => { this.sessionActive = false; return of(false); })
+    );
   }
 }
