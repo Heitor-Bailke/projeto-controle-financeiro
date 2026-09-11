@@ -1,4 +1,17 @@
 ﻿<section class="dashboard-shell">
+  <div class="dashboard-frame">
+    <aside class="dashboard-nav" aria-label="Navegação principal">
+      <div class="nav-brand"><img src="brand/hb-symbol.png" alt="HB Tech" width="42" height="36" /><strong>HB <span>Finance</span></strong></div>
+      <p class="nav-section">Menu</p>
+      <button type="button" [class.active]="activeTab === 'overview'" (click)="activeTab = 'overview'">Dashboard</button>
+      <button type="button" [class.active]="activeTab === 'entries'" (click)="openEntry()">Lançamentos</button>
+      <button type="button" [class.active]="activeTab === 'transactions'" (click)="activeTab = 'transactions'">Transações</button>
+      <button type="button" [class.active]="activeTab === 'comparison'" (click)="activeTab = 'comparison'">Relatórios</button>
+      <button type="button" [class.active]="activeTab === 'insights'" (click)="activeTab = 'insights'">Insights</button>
+      <p class="nav-section nav-bottom">Conta</p>
+      <button type="button" (click)="logout()">Sair</button>
+    </aside>
+    <main class="dashboard-main">
   <header class="topbar">
     <div>
       <div class="brand"><img src="brand/hb-symbol.png" alt="HB Tech" width="42" height="36" /><span>HB TECH / FINANCE</span></div>
@@ -8,20 +21,28 @@
     <div class="header-actions"><span class="chip">{{ getMonthName(currentMonth) }} / {{ currentYear }}</span><button type="button" class="ghost" (click)="logout()">Sair</button></div>
   </header>
   <div class="status toast" [class.error]="statusError" [attr.role]="statusError ? 'alert' : 'status'" *ngIf="statusMessage">{{ statusMessage }}<button type="button" class="text-button" (click)="statusMessage = ''" aria-label="Fechar mensagem">×</button></div>
-  <nav class="tabs" aria-label="Seções do painel">
-    <button type="button" [class.active]="activeTab === 'overview'" [attr.aria-current]="activeTab === 'overview' ? 'page' : null" (click)="activeTab = 'overview'"><span class="desktop-label">Visão geral</span><span class="mobile-label">Início</span></button>
-    <button type="button" [class.active]="activeTab === 'transactions'" [attr.aria-current]="activeTab === 'transactions' ? 'page' : null" (click)="activeTab = 'transactions'"><span class="desktop-label">Lançamentos</span><span class="mobile-label">Lanç.</span></button>
-    <button type="button" [class.active]="activeTab === 'comparison'" [attr.aria-current]="activeTab === 'comparison' ? 'page' : null" (click)="activeTab = 'comparison'"><span class="desktop-label">Comparar meses</span><span class="mobile-label">Comparar</span></button>
-    <button type="button" [class.active]="activeTab === 'insights'" [attr.aria-current]="activeTab === 'insights' ? 'page' : null" (click)="activeTab = 'insights'">Insights</button>
-  </nav>
   <div class="status error" role="alert" *ngIf="loadError">{{ loadError }} <button type="button" class="ghost" (click)="loadData()">Tentar novamente</button></div>
-  <app-summary-cards *ngIf="activeTab === 'overview' && !loadError" [income]="monthIncome" [expense]="monthExpense" [pending]="monthPending" [loading]="loading" />
-  <button class="new-entry" type="button" (click)="openEntry()">+ Novo lançamento</button>
 
-  <div class="overview-grid" *ngIf="activeTab === 'overview'">
+  <div class="filters" *ngIf="activeTab === 'overview' || activeTab === 'insights'">
+    <label>Mês de referência<select [(ngModel)]="currentMonth"><option *ngFor="let month of months" [ngValue]="month">{{ getMonthName(month) }}</option></select></label>
+    <label>Ano<select [(ngModel)]="currentYear"><option *ngFor="let year of availableYears" [ngValue]="year">{{ year }}</option></select></label>
+  </div>
+  <ng-container *ngIf="activeTab === 'overview' && !loadError">
+    <app-summary-cards [income]="monthIncome" [expense]="monthExpense" [pending]="monthPending" [receivable]="monthSummary.receivable" [loading]="loading" />
+    <p class="helper-text">Valores calculados pelos lançamentos do mês selecionado, sem saldo anterior ou saldo bancário inicial. Receitas pendentes não entram no saldo restante.</p>
+    <p role="status" *ngIf="loading">Carregando os indicadores e gráficos…</p>
+    <div class="overview-actions" *ngIf="!loading"><span class="helper-text">{{ monthlyTransactions.length }} lançamentos no período · saldo previsto: {{ formatCurrency(monthSummary.projected) }} (inclui valores a receber)</span><button type="button" (click)="openEntry()">+ Novo lançamento</button></div>
+  </ng-container>
+  <section class="analytics-grid" *ngIf="activeTab === 'overview' && !loadError && !loading" aria-label="Análise financeira">
+    <article class="card trend-card"><div class="card-head"><div><p class="eyebrow">Visão consolidada</p><h2>Evolução financeira</h2><p class="section-description">Recebido menos pago, acumulado no mês</p></div><span class="chip">{{ getMonthName(currentMonth) }} {{ currentYear }}</span></div><app-balance-chart [rows]="cashFlowBars" /></article>
+    <article class="card category-card"><div class="card-head"><div><p class="eyebrow">Onde estou gastando?</p><h2>Gastos por categoria</h2><p class="section-description">Despesas pagas no mês por categoria</p></div><span class="chip">Top categorias</span></div><app-bar-chart [rows]="categoryBars.slice(0, 5)" label="Despesas pagas por categoria" /></article>
+  </section>
+
+  <div class="overview-grid" *ngIf="activeTab === 'entries'">
     <article class="card entry-card" #entryCard>
       <p class="eyebrow">Organize seu dia a dia</p><h2>{{ editingId ? 'Editar lançamento' : 'Novo lançamento' }}</h2>
       <p class="section-description">{{ editingId ? 'As alterações afetam somente este lançamento.' : 'Registre uma entrada ou saída em poucos passos.' }}</p>
+      <p class="helper-text" *ngIf="!editingId" aria-live="polite">{{ showDetails ? 'Etapa 2 de 2 · Detalhes e confirmação' : 'Etapa 1 de 2 · Tipo, nome e valor' }}</p>
       <form class="entry-form" [formGroup]="expenseForm" (ngSubmit)="submitExpense()" novalidate>
         <fieldset class="type-selector" [disabled]="saving || ocrLoading || !!editingId"><legend class="sr-only">Tipo de lançamento</legend>
           <button type="button" [class.ghost]="expenseForm.value.type !== 'expense'" [attr.aria-pressed]="expenseForm.value.type === 'expense'" (click)="setType('expense')">Saída</button>
@@ -50,7 +71,7 @@
           <p class="helper-text full" *ngIf="expenseForm.value.schedule !== 'single'">A situação escolhida vale para o primeiro lançamento. Os seguintes serão registrados como pendentes.</p>
         </ng-container>
         <label class="review-check full" *ngIf="ocrNeedsReview"><input type="checkbox" [(ngModel)]="ocrReviewed" [ngModelOptions]="{standalone: true}" />Conferi os dados preenchidos pelo comprovante.</label>
-        <div class="form-actions full"><button type="submit" [disabled]="saving || ocrLoading"><span class="spinner" *ngIf="saving" aria-hidden="true"></span>{{ saving ? 'Salvando…' : editingId ? 'Salvar alterações' : showDetails ? 'Salvar lançamento' : 'Continuar e salvar lançamento' }}</button><button type="button" class="ghost" *ngIf="showDetails || editingId" [disabled]="saving || ocrLoading" (click)="cancelEntry()">Cancelar</button></div>
+        <div class="form-actions full"><button type="submit" [disabled]="saving || ocrLoading"><span class="spinner" *ngIf="saving" aria-hidden="true"></span>{{ saving ? 'Salvando…' : editingId ? 'Salvar alterações' : showDetails ? 'Salvar lançamento' : 'Continuar' }}</button><button type="button" class="ghost" *ngIf="showDetails && !editingId && !ocrNeedsReview" [disabled]="saving || ocrLoading" (click)="showDetails = false">Voltar</button><button type="button" class="ghost" [disabled]="saving || ocrLoading" (click)="cancelEntry()">Cancelar</button></div>
       </form>
     </article>
     <aside class="side-stack">
@@ -72,7 +93,6 @@
         <form class="category-form" [formGroup]="categoryForm" (ngSubmit)="submitCategory()" novalidate><label>Nome da categoria<input formControlName="name" maxlength="120" placeholder="Ex.: Alimentação" [attr.aria-invalid]="categoryForm.get('name')?.touched && categoryForm.get('name')?.invalid" aria-describedby="category-error" /><span class="field-error" id="category-error" *ngIf="categoryForm.get('name')?.touched && categoryForm.get('name')?.invalid">Informe um nome de até 120 caracteres.</span></label><label>Tipo<select formControlName="type"><option value="expense">Despesa</option><option value="income">Entrada</option></select></label><button type="submit" [disabled]="savingCategory">{{ savingCategory ? 'Criando…' : 'Criar categoria' }}</button></form>
       </article>
   </div>
-  <p class="helper-text" *ngIf="activeTab === 'overview'">Os totais são do mês atual e consideram apenas lançamentos pagos e recebidos. Pendentes mostra as despesas ainda a pagar.</p>
 
   <article class="card" *ngIf="activeTab === 'transactions'"><p class="eyebrow">Lançamentos</p><div class="card-head"><h2>Histórico</h2><span class="chip">{{ filteredTransactions.length }} registros</span></div>
     <div class="filters" role="group" aria-label="Filtrar lançamentos"><button *ngFor="let filter of filterOptions" type="button" class="ghost" [class.selected]="transactionFilter === filter.id" [attr.aria-pressed]="transactionFilter === filter.id" (click)="transactionFilter = filter.id">{{ filter.label }}</button></div>
@@ -83,17 +103,25 @@
   <article class="card" *ngIf="activeTab === 'comparison'"><div class="card-head"><div><p class="eyebrow">Análise temporal</p><h2>Comparação entre meses</h2></div><span class="chip">Por período</span></div>
     <div class="comparison-form"><label>Primeiro mês<select [(ngModel)]="baseMonth"><option *ngFor="let month of months" [ngValue]="month">{{ getMonthName(month) }}</option></select></label><label>Ano do primeiro mês<input type="number" [(ngModel)]="baseYear" min="1900" max="9999" [attr.aria-invalid]="!comparisonValid" /></label><label>Segundo mês<select [(ngModel)]="comparisonMonth"><option *ngFor="let month of months" [ngValue]="month">{{ getMonthName(month) }}</option></select></label><label>Ano do segundo mês<input type="number" [(ngModel)]="comparisonYear" min="1900" max="9999" [attr.aria-invalid]="!comparisonValid" /></label></div>
     <p class="field-error" *ngIf="!comparisonValid">Informe anos inteiros entre 1900 e 9999.</p>
-    <ng-container *ngIf="comparisonValid && !loadError && !loading"><app-bar-chart [rows]="comparisonBars" label="Despesas por período" /><div class="comparison-highlight"><span class="chip">{{ comparisonChange }}</span><p>{{ getComparisonSummary() }}</p><small class="helper-text">Inclui despesas pagas e pendentes. Meses sem registros aparecem com R$ 0,00.</small></div></ng-container>
+    <ng-container *ngIf="comparisonValid && !loadError && !loading">
+      <app-financial-report [base]="reportBase" [compared]="reportCompared" [baseLabel]="getMonthName(baseMonth) + '/' + baseYear" [comparedLabel]="getMonthName(comparisonMonth) + '/' + comparisonYear" />
+    </ng-container>
     <p role="status" *ngIf="loading">Carregando comparação…</p>
   </article>
 
   <article class="card" *ngIf="activeTab === 'insights'"><p class="eyebrow">Inteligência financeira</p><h2>Resumo executivo</h2><p class="helper-text">{{ getMonthName(currentMonth) }} / {{ currentYear }} · despesas pagas</p>
     <p role="status" *ngIf="loading">Carregando resumo…</p>
-    <ng-container *ngIf="!loading && !loadError"><p class="insight-main">{{ monthIncome > monthExpense ? 'Seu mês está com saldo positivo.' : monthExpense > monthIncome ? 'Suas saídas superam as entradas neste mês.' : 'Entradas e saídas estão equilibradas neste mês.' }}</p>
+    <ng-container *ngIf="!loading && !loadError"><p class="insight-main">{{ !monthlyTransactions.length ? 'Ainda não há lançamentos neste mês.' : monthIncome > monthExpense ? 'Seu mês está com saldo positivo.' : monthExpense > monthIncome ? 'Suas saídas superam as entradas neste mês.' : 'Entradas e saídas estão equilibradas neste mês.' }}</p>
     <p class="muted" *ngIf="categoryBars.length">Seu maior gasto está em {{ categoryBars[0].label }}.</p>
-    <div class="insight-grid"><div><strong>{{ topCategoryShare }}</strong><span>{{ categoryBars[0]?.label || 'Sem despesas pagas' }}</span></div><button type="button" class="ghost" (click)="activeTab = 'transactions'"><strong>{{ monthlyTransactions.length }}</strong><span>Lançamentos no mês</span></button><div><strong>{{ categories.length }}</strong><span>Categorias</span></div></div>
-    <app-bar-chart [rows]="categoryBars" label="Despesas pagas por categoria" /></ng-container>
+    <div class="insight-grid"><div><strong>{{ topCategoryShare }}</strong><span>{{ categoryBars[0]?.label || 'Sem despesas pagas' }} · participação nos gastos</span></div><div><strong>{{ expenseShare }}</strong><span>Da receita recebida usada em despesas pagas</span></div><div><strong>{{ monthlyTransactions.length }}</strong><span>Lançamentos no mês</span></div></div>
+    <h3>Como seus gastos se distribuem</h3><p class="helper-text">Despesas pagas no mês. Selecione uma categoria na legenda para ver o valor e a participação.</p>
+    <app-category-chart [rows]="categoryBars" />
+    <p class="section-description" *ngIf="biggestExpense">Maior despesa paga: <strong>{{ biggestExpense.name }} · {{ formatCurrency(biggestExpense.amount) }}</strong>.</p>
+    <p class="status" [class.error]="monthSummary.remaining < 0" *ngIf="monthPending > 0">Há {{ formatCurrency(monthPending) }} a pagar neste mês. Depois desses pagamentos, o saldo restante será {{ formatCurrency(monthSummary.remaining) }}. Valores a receber não estão incluídos.</p>
+    </ng-container>
   </article>
+    </main>
+  </div>
 </section>
 <dialog #confirmDialog class="dialog" aria-labelledby="delete-title" aria-describedby="delete-description" (cancel)="deleting ? $event.preventDefault() : closeDeletion()">
   <h2 id="delete-title">Excluir {{ deletion?.kind === 'category' ? 'categoria' : 'lançamento' }}?</h2><strong>{{ deletion?.name }}</strong><p id="delete-description">{{ deletion?.message }}</p><div class="status error" role="alert" *ngIf="deleteError">{{ deleteError }}</div>

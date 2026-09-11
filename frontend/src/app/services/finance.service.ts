@@ -24,7 +24,7 @@ export interface DashboardResponse {
 
 @Injectable({ providedIn: 'root' })
 export class FinanceService {
-  private readonly apiUrl = 'http://localhost:3000/api';
+  private readonly apiUrl = `${window.location.protocol}//${window.location.hostname}:3000/api`;
   private sessionActive = false;
 
   constructor(private http: HttpClient) {}

@@ -15,6 +15,27 @@ function setup() {
 }
 
 describe('Experiência do painel HB Tech', () => {
+  it('abre em duas etapas, preserva dados ao voltar e reinicia após salvar', () => {
+    const { component, service, fixture } = setup();
+    component.openEntry(); fixture.detectChanges();
+    expect(component.showDetails).toBe(false);
+    expect(fixture.nativeElement.querySelector('[formControlName="date"]')).toBeNull();
+    component.categories = [{ name: 'Casa', type: 'expense' }];
+    component.expenseForm.patchValue({ name: 'Conta', amount: 50, category: 'Casa' });
+    component.submitExpense(); fixture.detectChanges();
+    expect(service.createTransaction).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[formControlName="date"]')).not.toBeNull();
+    const back = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(button => button.textContent?.trim() === 'Voltar');
+    back?.click(); fixture.detectChanges();
+    expect(component.showDetails).toBe(false);
+    expect(component.expenseForm.value.name).toBe('Conta');
+    component.submitExpense();
+    service.createTransaction.mockReturnValue(of({}) as any);
+    component.submitExpense(); fixture.detectChanges();
+    expect(service.createTransaction).toHaveBeenCalledOnce();
+    expect(component.showDetails).toBe(false);
+    expect(component.expenseForm.value.name).toBe('');
+  });
   it('separa totais mensais, pendências e filtros sem misturar períodos', () => {
     const { component } = setup();
     component.currentMonth = 9; component.currentYear = 2026;

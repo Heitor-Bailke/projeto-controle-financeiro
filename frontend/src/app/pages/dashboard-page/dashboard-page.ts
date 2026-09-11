@@ -4,14 +4,18 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { FinanceService } from '../../services/finance.service';
-import { SummaryCardsComponent } from '../../components/summary-cards';
 import { TransactionListComponent } from '../../components/transaction-list';
 import { BarChartComponent, ChartBar } from '../../components/bar-chart';
+import { SummaryCardsComponent } from '../../components/summary-cards';
+import { BalanceChartComponent } from '../../components/balance-chart';
+import { CategoryChartComponent } from '../../components/category-chart';
+import { FinancialReportComponent } from '../../components/financial-report';
+import { balanceSeries, expenseCategories, monthEntries, summarize } from '../../components/financial-metrics';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, SummaryCardsComponent, TransactionListComponent, BarChartComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, TransactionListComponent, BarChartComponent, SummaryCardsComponent, BalanceChartComponent, CategoryChartComponent, FinancialReportComponent],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.css'
 })
@@ -59,7 +63,7 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
   private statusTimeout: any;
   private categoryStatusTimeout: any;
   private ocrStatusTimeout: any;
-  activeTab: 'overview' | 'transactions' | 'comparison' | 'insights' = 'overview';
+  activeTab: 'overview' | 'entries' | 'transactions' | 'comparison' | 'insights' = 'overview';
   months = Array.from({ length: 12 }, (_, index) => index + 1);
   baseMonth = new Date().getMonth() || 12;
   baseYear = new Date().getFullYear() - (new Date().getMonth() === 0 ? 1 : 0);
@@ -67,6 +71,10 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
   comparisonYear = new Date().getFullYear();
   currentMonth = new Date().getMonth() + 1;
   currentYear = new Date().getFullYear();
+  get isCurrentMonth(): boolean {
+    const today = new Date();
+    return this.currentMonth === today.getMonth() + 1 && this.currentYear === today.getFullYear();
+  }
 
   expenseForm: FormGroup = this.fb.group({
     type: ['expense', Validators.required],
@@ -217,7 +225,7 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
     if (!this.showDetails && !this.editingId) {
       this.expenseForm.get('name')?.markAsTouched();
       this.expenseForm.get('amount')?.markAsTouched();
-      if (!this.expenseForm.value.name?.trim() || this.expenseForm.get('amount')?.invalid) return;
+      if (!this.expenseForm.value.name?.trim() || this.expenseForm.get('name')?.invalid || this.expenseForm.get('amount')?.invalid) return;
       this.showDetails = true;
       return;
     }
@@ -438,16 +446,29 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
   }
 
   get monthlyTransactions(): any[] {
-    return this.transactions.filter(item => String(item.date).slice(0, 7) === `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}`);
+    return monthEntries(this.transactions, this.currentMonth, this.currentYear);
   }
-  get monthIncome(): number { return this.monthlyTransactions.filter(item => item.type === 'income' && item.status !== 'pending').reduce((sum, item) => sum + Number(item.amount), 0); }
-  get monthExpense(): number { return this.monthlyTransactions.filter(item => item.type === 'expense' && item.status !== 'pending').reduce((sum, item) => sum + Number(item.amount), 0); }
-  get monthPending(): number { return this.monthlyTransactions.filter(item => item.type === 'expense' && item.status === 'pending').reduce((sum, item) => sum + Number(item.amount), 0); }
+  get monthSummary() { return summarize(this.monthlyTransactions); }
+  get monthIncome(): number { return this.monthSummary.income; }
+  get monthExpense(): number { return this.monthSummary.expense; }
+  get monthPending(): number { return this.monthSummary.pending; }
+  get reportBase() { return monthEntries(this.transactions, this.baseMonth, this.baseYear); }
+  get reportCompared() { return monthEntries(this.transactions, this.comparisonMonth, this.comparisonYear); }
+  get expenseShare(): string {
+    return this.monthIncome ? `${(this.monthExpense / this.monthIncome * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : 'Sem receita';
+  }
+  get biggestExpense() {
+    return [...this.monthlyTransactions].filter(e => e.type === 'expense' && e.status !== 'pending').sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+  }
+  get availableYears() {
+    return [...new Set([new Date().getFullYear(), this.currentYear, ...this.transactions.map(e => Number(String(e.date).slice(0, 4)))])].filter(year => year >= 1900 && year <= 9999).sort((a, b) => b - a);
+  }
   get filteredTransactions(): any[] {
     return this.transactions.filter(item => this.transactionFilter === 'all' || (this.transactionFilter === 'pending' ? item.status === 'pending' : item.type === this.transactionFilter));
   }
   get comparisonValid(): boolean {
-    return [this.baseYear, this.comparisonYear].every(value => Number.isInteger(value) && value >= 1900 && value <= 9999);
+    return [this.baseYear, this.comparisonYear].every(value => Number.isInteger(value) && value >= 1900 && value <= 9999)
+      && [this.baseMonth, this.comparisonMonth].every(value => Number.isInteger(value) && value >= 1 && value <= 12);
   }
   get comparisonBars(): ChartBar[] {
     if (!this.comparisonValid) return [];
@@ -461,18 +482,17 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
     return `${((next.value - base.value) / base.value * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% em relação ao primeiro período`;
   }
   get categoryBars(): ChartBar[] {
-    const totals = new Map<string, number>();
-    for (const item of this.monthlyTransactions.filter(item => item.type === 'expense' && item.status !== 'pending')) {
-      const name = item.category || 'Sem categoria'; totals.set(name, (totals.get(name) || 0) + Number(item.amount));
-    }
-    return [...totals].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+    return expenseCategories(this.monthlyTransactions);
+  }
+  get cashFlowBars(): ChartBar[] {
+    return balanceSeries(this.monthlyTransactions);
   }
   get topCategoryShare(): string {
     return this.monthExpense ? `${Math.round((this.categoryBars[0]?.value || 0) / this.monthExpense * 100)}%` : '0%';
   }
 
   openEntry(): void {
-    this.activeTab = 'overview';
+    this.activeTab = 'entries';
     this.cdr.detectChanges();
     clearTimeout(this.focusTimer);
     this.focusTimer = setTimeout(() => {

@@ -19,6 +19,7 @@ describe('Cadastro de categorias', () => {
     const fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    component.openEntry();
     component.categoryForm.patchValue({ name: ' Mercado ', type: 'expense' });
     return { component, service, fixture };
   }
