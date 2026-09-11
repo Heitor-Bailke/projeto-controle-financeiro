@@ -1,0 +1,40 @@
+﻿node_modules/
+frontend/dist/
+frontend/.angular/
+.env
+.env.*
+!.env.example
+
+# Dados locais, comprovantes e backups
+uploads/
+logs/
+backups/
+dumps/
+data/
+postgres_data/
+*.log
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.dump
+*.backup
+*.bak
+*.sql
+!backend/database/schema.sql
+
+# Credenciais e chaves privadas
+secrets/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc
+.netrc
+
+# Arquivos temporarios locais
+.runtime/
+coverage/

@@ -1,0 +1,54 @@
+<section class="auth-shell">
+  <div class="card hero-card">
+    <p class="eyebrow">Controle financeiro pessoal</p>
+    <h1>Gerencie despesas, receitas e metas com uma plataforma moderna.</h1>
+    <p>Dashboard profissional com segurança, histórico, categorias e OCR para notas fiscais.</p>
+  </div>
+
+  <div class="card forms-card">
+    <div class="status" *ngIf="statusMessage">{{ statusMessage }}</div>
+
+    <div class="form-block" *ngIf="!showRegister">
+      <h2>Entrar</h2>
+      <form [formGroup]="loginForm" (ngSubmit)="submitLogin()">
+        <label>
+          E-mail
+          <input formControlName="email" type="email" />
+        </label>
+        <label>
+          Senha
+          <input formControlName="password" type="password" />
+        </label>
+        <button type="submit" [disabled]="isLoading">{{ isLoading ? 'Entrando...' : 'Entrar' }}</button>
+      </form>
+      <button class="switch-form" type="button" [disabled]="isLoading" (click)="switchForm(true)">Criar conta</button>
+    </div>
+
+    <div class="form-block" *ngIf="showRegister">
+      <h2>Criar conta</h2>
+      <form [formGroup]="registerForm" (ngSubmit)="submitRegister()">
+        <label>
+          Nome
+          <input formControlName="name" />
+        </label>
+        <label>
+          E-mail
+          <input formControlName="email" type="email" />
+        </label>
+        <label>
+          Senha
+          <input formControlName="password" type="password" />
+        </label>
+        <label>
+          Confirmar senha
+          <input formControlName="confirmPassword" type="password" />
+        </label>
+        <p class="helper-text" *ngIf="registerForm.hasError('passwordMismatch') && registerForm.touched">
+          As senhas devem ser iguais.
+        </p>
+        <button type="submit" [disabled]="isLoading">Cadastrar</button>
+      </form>
+      <button class="switch-form" type="button" [disabled]="isLoading" (click)="switchForm(false)">Voltar para entrar</button>
+    </div>
+  </div>
+</section>
